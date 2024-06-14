@@ -1,0 +1,42 @@
+{{{
+  exports({ to: app.makePath(`${outputPath}/operations.ts`) })
+}}}
+import type { HttpContext } from '@adonisjs/core/http'
+import vine from '@vinejs/vine'
+import type { operations } from './types'
+
+{{#each operations as operation}}
+{{#var pascalOperation = string(operation.id).pascalCase().toString() }}
+export type {{{ pascalOperation }}}Input = {{#if operation.params || operation.requestBodyType }}{
+{{#if operation.params }}    params: {{{ operation.params }}},
+{{/if}}{{#if operation.requestBodyType }}    body: {{{ operation.requestBodyType }}},
+{{/if}}
+}
+{{#else }}never{{/if}}
+export type {{{ pascalOperation }}}Output = {{#if operation.responses.length > 0 }}
+{{ operation.responses }}
+{{#else}} never {{/if}}
+export async function {{{ operation.id }}}Operation(handler: (
+  ctx: HttpContext,
+  input: {{{ pascalOperation }}}Input
+) => {{{ pascalOperation }}}Output) {
+  return function(ctx: HttpContext) {
+    {{#if operation.requestBodyValidationSchema && operation.params}}
+    const input = {}
+    {{/if}}
+    {{#if operation.requestBodyValidationSchema }}
+    const bodyValidationSchema = {{ operation.requestBodyValidationSchema }}
+    const body = await vine.validate({ bodyValidationSchema, data: ctx.request.body() })
+    input.body = body
+    {{/if}}
+    {{#if operation.params}}
+    const params = { path: ctx.params() }
+    {{#if operation.queryValidationSchema}}
+    const queryValidationSchema = {{ operation.queryValidationSchema }}
+    params.query = await vine.validate({ queryValidationSchema, data: ctx.request.qs() })
+    {{/if}}
+    {{/if}}
+    return handler(ctx, input)
+  }
+}
+{{/each}}

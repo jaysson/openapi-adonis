@@ -1,0 +1,9 @@
+{{{
+  exports({ to: app.configPath('openapi.ts') })
+}}}
+import { defineConfig } from 'openapi-adonis'
+
+defineConfig({
+  // The path to the OpenAPI schema file relative to the project root
+  specPath: 'resources/schemas/openapi.yaml',
+})
