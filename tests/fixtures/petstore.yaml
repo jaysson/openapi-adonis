@@ -1,119 +1,113 @@
 openapi: "3.0.0"
 info:
   version: 1.0.0
-  title: Swagger Petstore
+  title: Fitness Desk
   license:
-    name: MIT
+    name: UNLICENSED
 servers:
-  - url: http://petstore.swagger.io/v1
+  - url: http://localhost:8000
 paths:
-  /pets:
-    get:
-      summary: List all pets
-      operationId: listPets
-      tags:
-        - pets
-      parameters:
-        - name: limit
-          in: query
-          description: How many items to return at one time (max 100)
-          required: false
-          schema:
-            type: integer
-            maximum: 100
-            format: int32
-      responses:
-        '200':
-          description: A paged array of pets
-          headers:
-            x-next:
-              description: A link to the next page of responses
-              schema:
-                type: string
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Pets"
-        default:
-          description: unexpected error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+  /v1/registrations:
     post:
-      summary: Create a pet
-      operationId: createPets
       tags:
-        - pets
+        - users
+      summary: Register a new user
+      operationId: registerUser
       requestBody:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/Pet'
-        required: true
+              $ref: '#/components/schemas/UserRegistrationRequest'
       responses:
         '201':
-          description: Null response
-        default:
-          description: unexpected error
+          description: User registered successfully
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Error"
-  /pets/{petId}:
-    get:
-      summary: Info for a specific pet
-      operationId: showPetById
+                $ref: '#/components/schemas/User'
+  /v1/email-verification-requests:
+    post:
       tags:
-        - pets
-      parameters:
-        - name: petId
-          in: path
-          required: true
-          description: The id of the pet to retrieve
-          schema:
-            type: string
+        - verifications
+      summary: Request email verification link
+      operationId: requestEmailVerificationLink
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmailVerificationLinkRequest'
       responses:
-        '200':
-          description: Expected response to a valid request
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Pet"
-        default:
-          description: unexpected error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+        '204':
+          description: Email verification requested successfully
+  /v1/email-verifications:
+    post:
+      tags:
+        - verifications
+      summary: Verify email
+      operationId: verifyEmail
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmailVerificationRequest'
+      responses:
+        '204':
+          description: Email verified successfully
 components:
   schemas:
-    Pet:
+    User:
       type: object
       required:
         - id
+        - email
+        - mobile_number
         - name
       properties:
         id:
-          type: integer
-          format: int64
+          type: string
+        email:
+          type: string
+        mobile_number:
+          type: string
         name:
           type: string
-        tag:
-          type: string
-    Pets:
-      type: array
-      maxItems: 100
-      items:
-        $ref: "#/components/schemas/Pet"
-    Error:
+    UserRegistrationRequest:
       type: object
       required:
-        - code
-        - message
+        - email
+        - password
+        - mobile_number
+        - name
       properties:
-        code:
-          type: integer
-          format: int32
-        message:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+        mobile_number:
+          type: string
+        name:
+          type: string
+        member_of:
+          type: string
+        referral_code:
+          type: string
+    EmailVerificationLinkRequest:
+      type: object
+      required:
+        - email
+      properties:
+        email:
+          type: string
+          format: email
+    EmailVerificationRequest:
+      type: object
+      required:
+        - email
+        - token
+      properties:
+        email:
+          type: string
+          format: email
+        token:
           type: string

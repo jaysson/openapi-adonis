@@ -3,40 +3,88 @@
 }}}
 import type { HttpContext } from '@adonisjs/core/http'
 import vine from '@vinejs/vine'
-import type { operations } from './types'
+import { Infer } from '@vinejs/vine/types'
+import type { operations } from './types.js'
 
 {{#each operations as operation}}
 {{#var pascalOperation = string(operation.id).pascalCase().toString() }}
-export type {{{ pascalOperation }}}Input = {{#if operation.params || operation.requestBodyType }}{
-{{#if operation.params }}    params: {{{ operation.params }}},
-{{/if}}{{#if operation.requestBodyType }}    body: {{{ operation.requestBodyType }}},
+{{#var paramsExist = operation.headerParamsValidationSchema || operation.pathParamsValidationSchema || operation.queryParamsValidationSchema }}
+{{#var inputsExist = paramsExist || operation.requestBodyValidationSchema }}
+{{#if operation.headerParamsValidationSchema}}
+export const {{operation.id}}HeaderParamsValidationSchema = {{operation.headerParamsValidationSchema}}
+export type {{pascalOperation}}HeaderParams = Infer<typeof {{operation.id}}HeaderParamsValidationSchema>
 {{/if}}
+{{#if operation.pathParamsValidationSchema}}
+export const {{operation.id}}PathParamsValidationSchema = {{operation.pathParamsValidationSchema}}
+export type {{pascalOperation}}PathParams = Infer<typeof {{operation.id}}PathParamsValidationSchema>
+{{/if}}
+{{#if operation.queryParamsValidationSchema}}
+export const {{operation.id}}QueryParamsValidationSchema = {{operation.queryParamsValidationSchema}}
+export type {{pascalOperation}}QueryParams = Infer<typeof {{operation.id}}QueryParamsValidationSchema>
+{{/if}}
+{{#if operation.requestBodyValidationSchema}}
+export const {{operation.id}}RequestSchema = {{operation.requestBodyValidationSchema}}
+export type {{pascalOperation}}RequestBody = Infer<typeof {{operation.id}}RequestSchema>
+{{/if}}
+{{#if paramsExist }}
+export type {{pascalOperation}}Params = {
+  {{#if operation.headerParamsValidationSchema}}
+  header: {{pascalOperation}}HeaderParams
+  {{/if}}
+  {{#if operation.pathParamsValidationSchema}}
+  path: {{pascalOperation}}PathParams
+  {{/if}}
+  {{#if operation.queryParamsValidationSchema}}
+  query: {{pascalOperation}}QueryParams
+  {{/if}}
 }
-{{#else }}never{{/if}}
-export type {{{ pascalOperation }}}Output = {{#if operation.responses.length > 0 }}
-{{ operation.responses }}
-{{#else}} never {{/if}}
-export async function {{{ operation.id }}}Operation(handler: (
+{{/if}}
+{{#if inputsExist }}
+export type {{ pascalOperation }}Input = {
+  {{#if paramsExist }}
+  params: {{pascalOperation}}Params
+  {{/if}}
+  {{#if operation.requestBodyValidationSchema }}
+  body: {{pascalOperation}}RequestBody
+  {{/if}}
+}
+{{/if}}
+{{#if operation.responseTypes}}
+export type {{ pascalOperation }}Output = {{operation.responseTypes}}
+{{/if}}
+export type {{ pascalOperation }}Handler = (
   ctx: HttpContext,
-  input: {{{ pascalOperation }}}Input
-) => {{{ pascalOperation }}}Output) {
-  return function(ctx: HttpContext) {
-    {{#if operation.requestBodyValidationSchema && operation.params}}
-    const input = {}
-    {{/if}}
-    {{#if operation.requestBodyValidationSchema }}
-    const bodyValidationSchema = {{ operation.requestBodyValidationSchema }}
-    const body = await vine.validate({ bodyValidationSchema, data: ctx.request.body() })
-    input.body = body
-    {{/if}}
-    {{#if operation.params}}
-    const params = { path: ctx.params() }
-    {{#if operation.queryValidationSchema}}
-    const queryValidationSchema = {{ operation.queryValidationSchema }}
-    params.query = await vine.validate({ queryValidationSchema, data: ctx.request.qs() })
-    {{/if}}
-    {{/if}}
+  {{#if inputsExist }}
+  input: {{ pascalOperation }}Input
+  {{/if}}
+) => Promise<{{#if operation.responseTypes}}{{ pascalOperation }}Output{{#else}}void{{/if}}>
+
+export function {{ operation.id }}Operation(handler: {{ pascalOperation }}Handler) {
+  async function routeHandler(ctx: HttpContext) {
+    {{#if inputsExist }}
+    const input = {
+      {{#if paramsExist }}
+      params: {
+        {{#if operation.headerParamsValidationSchema }}
+        header: await vine.validate({ schema: {{operation.headerParamsValidationSchema}}, data: ctx.request.header() })
+        {{/if}}
+        {{#if operation.pathParamsValidationSchema }}
+        path: await vine.validate({ schema: {{operation.pathParamsValidationSchema}}, data: ctx.params })
+        {{/if}}
+        {{#if operation.queryParamsValidationSchema }}
+        query: await vine.validate({ schema: {{operation.id}}QueryParamsValidationSchema, data: ctx.request.qs() })
+        {{/if}}
+      },
+      {{/if}}
+      {{#if operation.requestBodyValidationSchema }}
+      body: await vine.validate({ schema: {{operation.requestBodyValidationSchema}}, data: ctx.request.body() })
+      {{/if}}
+    }
     return handler(ctx, input)
+    {{#else}}
+    return handler(ctx)
+    {{/if}}
   }
+  return { method: '{{operation.method}}', path: '{{operation.path}}', routeHandler }
 }
 {{/each}}

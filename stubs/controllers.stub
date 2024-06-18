@@ -1,0 +1,25 @@
+{{{
+  exports({ to: app.makePath(`${outputPath}/controllers.ts`) })
+}}}
+import app from '@adonisjs/core/services/app'
+import { {{#each operations as operation}}{{operation.id}}Operation, {{/each}} } from './operations.js'
+{{#each controllers as controllerEntry}}
+{{#var tag = controllerEntry[0]}}
+{{#var operationIds = controllerEntry[1]}}
+{{#var pascalTag = string(tag).pascalCase().toString()}}
+export interface {{pascalTag}}Contract {
+  {{#each operationIds as operationId}}{{operationId}}: Parameters<typeof {{operationId}}Operation>[0]
+  {{/each}}
+}
+export function {{tag}}Operations(ControllerClass: new (...args: unknown[]) => {{pascalTag}}Contract){
+  return [
+  {{#each operations as operation}}
+    {{#var inputsExist = operation.headerParamsValidationSchema || operation.pathParamsValidationSchema || operation.queryParamsValidationSchema || operation.requestBodyValidationSchema }}
+    {{operation.id}}Operation(async function(ctx{{#if inputsExist}}, input{{/if}}){
+      const controller = await app.container.make(ControllerClass)
+      return app.container.call(controller, '{{operation.id}}', [ctx{{#if inputsExist}}, input{{/if}}])
+    }),
+  {{/each}}
+  ]
+}
+{{/each}}
